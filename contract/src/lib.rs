@@ -1,7 +1,9 @@
 
 
+use std::convert::TryFrom;
+
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::{Base58CryptoHash, U128, Base58PublicKey, U64};
+use near_sdk::json_types::{Base58CryptoHash, U128, Base58PublicKey, U64, ValidAccountId};
 use near_sdk::serde::{Serialize, Deserialize};
 use near_sdk::serde_json::{json, self};
 use near_sdk::{env, near_bindgen, setup_alloc, AccountId, log, bs58, PanicOnDefault, Promise};
@@ -34,7 +36,7 @@ pub struct Popula {
 #[serde(crate = "near_sdk::serde")]
 #[derive(Debug)]
 pub struct AccessInfo {
-    token_id: AccountId,
+    token_id: Option<AccountId>,
     amount_to_access: U128
 }
 
@@ -44,7 +46,6 @@ pub struct AccessInfo {
 pub struct Args {
     text: Option<String>,
     imgs: Option<Vec<String>>,
-    blur_imgs: Option<Vec<String>>,
     video: Option<String>,
     audio: Option<String>
 }
@@ -81,18 +82,18 @@ impl Popula {
     }
 
     pub fn follow(&mut self, account_id: AccountId) {
-        log!("follow {:?}", account_id);
+        ValidAccountId::try_from(account_id).unwrap();
     }
 
     pub fn unfollow(&mut self, account_id: AccountId) {
-        log!("unfollow {:?}", account_id);
+        ValidAccountId::try_from(account_id).unwrap();
     }
 
-    pub fn like(&mut self, hash: Base58CryptoHash) {
-        log!("like {:?}", hash);
+    pub fn like(&mut self, receipt_id: String) {
+        Base58CryptoHash::try_from(receipt_id).unwrap();
     }
 
-    pub fn unlike(&mut self, hash: Base58CryptoHash) {
-        log!("unlike {:?}", hash)
+    pub fn unlike(&mut self, receipt_id: String) {
+        Base58CryptoHash::try_from(receipt_id).unwrap();
     }
 }
