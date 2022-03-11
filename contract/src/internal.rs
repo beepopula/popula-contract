@@ -9,8 +9,9 @@ impl Popula {
     }
 
     pub(crate) fn decrypt(&self, text: String) -> Args {
+        let pk: Vec<u8> = bs58::decode(self.public_key.clone()).into_vec().unwrap();
         let encrypt_vec = bs58::decode(text).into_vec().unwrap();
-        let decrypt_vec = crypter::decrypt(&self.secret_key, &encrypt_vec).unwrap();
+        let decrypt_vec = crypter::decrypt(&pk, &encrypt_vec).unwrap();
         let args: Args = serde_json::from_slice(&decrypt_vec).unwrap();
         args
     }

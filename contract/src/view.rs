@@ -4,8 +4,8 @@ use crate::*;
 #[serde(crate = "near_sdk::serde")]
 #[derive(Debug)]
 pub struct EncryptInfo {
+    encrypt_string: String,
     receipt_id: String,
-    encrypt_string: String
 }
 
 

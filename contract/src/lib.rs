@@ -3,15 +3,12 @@
 use std::convert::TryFrom;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::{Base58CryptoHash, U128, Base58PublicKey, U64, ValidAccountId};
+use near_sdk::json_types::{Base58CryptoHash, U128};
 use near_sdk::serde::{Serialize, Deserialize};
 use near_sdk::serde_json::{json, self};
-use near_sdk::{env, near_bindgen, setup_alloc, AccountId, log, bs58, PanicOnDefault, Promise};
+use near_sdk::{env, near_bindgen, AccountId, log, bs58, PanicOnDefault, Promise};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
-use upgrade::Upgrade;
 use utils::{verify, checkArgs};
-
-setup_alloc!();
 
 
 pub mod sign;
@@ -20,7 +17,6 @@ pub mod crypter;
 pub mod internal;
 pub mod view;
 pub mod owner;
-pub mod upgrade;
 
 
 #[near_bindgen]
@@ -29,14 +25,13 @@ pub struct Popula {
     owner_id: AccountId,
     public_key: String,
     secret_key: Vec<u8>,
-    upgrade: Upgrade
 }
 
 #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 #[serde(crate = "near_sdk::serde")]
 #[derive(Debug)]
 pub struct AccessInfo {
-    token_id: Option<AccountId>,
+    token_id: AccountId,
     amount_to_access: U128
 }
 
@@ -58,7 +53,7 @@ impl Popula {
         let mut secret_key: Vec<u8> = Vec::new();
         while env::used_gas() < env::prepaid_gas() / 2 {
             let gas_str = env::used_gas().to_string().as_bytes().to_vec();
-            let block_index = env::block_index().to_string().as_bytes().to_vec();
+            let block_index = env::block_height().to_string().as_bytes().to_vec();
             secret_key = [secret_key, gas_str, block_index].concat();
             secret_key = env::sha256(&secret_key);
         }
@@ -67,7 +62,6 @@ impl Popula {
             owner_id: env::predecessor_account_id(),
             public_key: public_key,
             secret_key: secret_key,
-            upgrade: Upgrade::new(env::predecessor_account_id(), 0)
         }
     }
 
@@ -82,11 +76,9 @@ impl Popula {
     }
 
     pub fn follow(&mut self, account_id: AccountId) {
-        ValidAccountId::try_from(account_id).unwrap();
     }
 
     pub fn unfollow(&mut self, account_id: AccountId) {
-        ValidAccountId::try_from(account_id).unwrap();
     }
 
     pub fn like(&mut self, receipt_id: String) {
