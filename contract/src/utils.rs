@@ -3,7 +3,7 @@
 use near_sdk::{Balance, StorageUsage, Promise, log};
 
 use crate::*;
-use crate::sign::ed25519::{PublicKey, Signature};
+use crate::signature::ed25519::{PublicKey, Signature};
 
 
 pub(crate) fn refund_extra_storage_deposit(storage_used: StorageUsage, used_balance: Balance) {

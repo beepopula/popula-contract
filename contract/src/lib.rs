@@ -6,25 +6,20 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::{Base58CryptoHash, U128};
 use near_sdk::serde::{Serialize, Deserialize};
 use near_sdk::serde_json::{json, self};
-use near_sdk::{env, near_bindgen, AccountId, log, bs58, PanicOnDefault, Promise};
+use near_sdk::{env, near_bindgen, AccountId, log, bs58, PanicOnDefault, Promise, BlockHeight};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
-use utils::{verify, checkArgs};
+use utils::{checkArgs, verify};
 
 
-pub mod sign;
 pub mod utils;
-pub mod crypter;
-pub mod internal;
-pub mod view;
-pub mod owner;
+pub mod signature;
 
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Popula {
     owner_id: AccountId,
-    public_key: String,
-    secret_key: Vec<u8>,
+    public_key: String
 }
 
 #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
@@ -33,6 +28,14 @@ pub struct Popula {
 pub struct AccessInfo {
     token_id: AccountId,
     amount_to_access: U128
+}
+
+#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[serde(crate = "near_sdk::serde")]
+#[derive(Debug)]
+pub struct EncryptInfo {
+    content: Args,
+    access: String
 }
 
 #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
@@ -50,18 +53,9 @@ impl Popula {
 
     #[init]
     pub fn new(public_key: String) -> Self {
-        let mut secret_key: Vec<u8> = Vec::new();
-        while env::used_gas() < env::prepaid_gas() / 2 {
-            let gas_str = env::used_gas().to_string().as_bytes().to_vec();
-            let block_index = env::block_height().to_string().as_bytes().to_vec();
-            secret_key = [secret_key, gas_str, block_index].concat();
-            secret_key = env::sha256(&secret_key);
-        }
-
         Self {
             owner_id: env::predecessor_account_id(),
-            public_key: public_key,
-            secret_key: secret_key,
+            public_key: public_key
         }
     }
 
@@ -69,9 +63,13 @@ impl Popula {
         checkArgs(text, imgs, video, audio);
     }
 
-    pub fn add_encrypt_post(&mut self, encrypt_string: String, access: Vec<Vec<AccessInfo>>) {
-        assert!(access.len() > 0 && access[0].len() > 0, "access can not be empty");
-        let args = self.decrypt(encrypt_string);
+    pub fn add_encrypt_post(&mut self, encrypt_info: String, sign: String) {
+        let hash = env::sha256(&encrypt_info.clone().into_bytes());
+        let sign: Vec<u8> = bs58::decode(sign).into_vec().unwrap();
+        let pk: Vec<u8> = bs58::decode(self.public_key.clone()).into_vec().unwrap();
+        verify(hash, sign.into(), pk.into());
+
+        let EncryptInfo { content: args, access: _ } = serde_json::from_str(&encrypt_info).unwrap();
         checkArgs(args.text, args.imgs, args.video, args.audio);
     }
 
