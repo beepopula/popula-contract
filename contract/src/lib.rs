@@ -1,28 +1,34 @@
 
 
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 
+use bloom_filter::{Bloom, WrappedHash};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::{Base58CryptoHash, U128};
 use near_sdk::serde::{Serialize, Deserialize};
 use near_sdk::serde_json::{json, self};
 use near_sdk::{env, near_bindgen, AccountId, log, bs58, PanicOnDefault, Promise, BlockHeight};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
-use utils::{checkArgs, verify};
+use utils::{check_args, verify, check_encrypt_args};
+use access::Access;
 
 
 pub mod utils;
 pub mod signature;
+pub mod bloom_filter;
+pub mod post;
+pub mod access;
 
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Popula {
     owner_id: AccountId,
-    public_key: String
+    public_key: String,
+    bloom_filter: Bloom
 }
 
-#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 #[derive(Debug)]
 pub struct AccessInfo {
@@ -34,7 +40,7 @@ pub struct AccessInfo {
 #[serde(crate = "near_sdk::serde")]
 #[derive(Debug)]
 pub struct EncryptInfo {
-    content: Args,
+    content: EncryptArgs,
     access: String
 }
 
@@ -48,6 +54,16 @@ pub struct Args {
     audio: Option<String>
 }
 
+#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[serde(crate = "near_sdk::serde")]
+#[derive(Debug)]
+pub struct EncryptArgs {
+    text: Option<String>,
+    imgs: Option<String>,
+    video: Option<String>,
+    audio: Option<String>
+}
+
 #[near_bindgen]
 impl Popula {
 
@@ -55,35 +71,16 @@ impl Popula {
     pub fn new(public_key: String) -> Self {
         Self {
             owner_id: env::predecessor_account_id(),
-            public_key: public_key
+            public_key: public_key,
+            bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1)
         }
     }
+}
 
-    pub fn add_post(&mut self, text: Option<String>, imgs: Option<Vec<String>>, video: Option<String>, audio: Option<String>) {
-        checkArgs(text, imgs, video, audio);
-    }
 
-    pub fn add_encrypt_post(&mut self, encrypt_info: String, sign: String) {
-        let hash = env::sha256(&encrypt_info.clone().into_bytes());
-        let sign: Vec<u8> = bs58::decode(sign).into_vec().unwrap();
-        let pk: Vec<u8> = bs58::decode(self.public_key.clone()).into_vec().unwrap();
-        verify(hash, sign.into(), pk.into());
 
-        let EncryptInfo { content: args, access: _ } = serde_json::from_str(&encrypt_info).unwrap();
-        checkArgs(args.text, args.imgs, args.video, args.audio);
-    }
+#[cfg(test)]
+mod tests {
 
-    pub fn follow(&mut self, account_id: AccountId) {
-    }
 
-    pub fn unfollow(&mut self, account_id: AccountId) {
-    }
-
-    pub fn like(&mut self, receipt_id: String) {
-        Base58CryptoHash::try_from(receipt_id).unwrap();
-    }
-
-    pub fn unlike(&mut self, receipt_id: String) {
-        Base58CryptoHash::try_from(receipt_id).unwrap();
-    }
 }

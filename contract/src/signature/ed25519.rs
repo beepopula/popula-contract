@@ -38,6 +38,62 @@ impl Deref for PublicKey {
     }
 }
 
+/// A secret key.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct SecretKey([u8; SecretKey::BYTES]);
+
+impl SecretKey {
+    /// Number of bytes in a secret key.
+    pub const BYTES: usize = 32 + PublicKey::BYTES;
+
+    /// Creates a secret key from raw bytes.
+    pub fn new(sk: [u8; SecretKey::BYTES]) -> Self {
+        SecretKey(sk)
+    }
+
+    /// Creates a secret key from a slice.
+    pub fn from_slice(sk: &[u8]) -> Result<Self, Error> {
+        let mut sk_ = [0u8; SecretKey::BYTES];
+        if sk.len() != sk_.len() {
+            return Err(Error::InvalidSecretKey);
+        }
+        sk_.copy_from_slice(sk);
+        Ok(SecretKey::new(sk_))
+    }
+
+    /// Returns the public counterpart of a secret key.
+    pub fn public_key(&self) -> PublicKey {
+        let mut pk = [0u8; PublicKey::BYTES];
+        pk.copy_from_slice(&self[Seed::BYTES..]);
+        PublicKey(pk)
+    }
+
+    /// Returns the seed of a secret key.
+    pub fn seed(&self) -> Seed {
+        let mut seed = [0u8; Seed::BYTES];
+        seed.copy_from_slice(&self[0..Seed::BYTES]);
+        Seed(seed)
+    }
+}
+
+impl Deref for SecretKey {
+    type Target = [u8; SecretKey::BYTES];
+
+    /// Returns a secret key as bytes.
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// A key pair.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct KeyPair {
+    /// Public key part of the key pair.
+    pub pk: PublicKey,
+    /// Secret key part of the key pair.
+    pub sk: SecretKey,
+}
+
 /// An Ed25519 signature.
 #[derive(Copy, Clone)]
 pub struct Signature([u8; Signature::BYTES]);
@@ -83,6 +139,114 @@ impl Deref for Signature {
     }
 }
 
+/// A seed, which a key pair can be derived from.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Seed([u8; Seed::BYTES]);
+
+impl From<[u8; 32]> for Seed {
+    fn from(seed: [u8; 32]) -> Self {
+        Seed(seed)
+    }
+}
+
+impl Seed {
+    /// Number of raw bytes in a seed.
+    pub const BYTES: usize = 32;
+
+    /// Creates a seed from raw bytes.
+    pub fn new(seed: [u8; Seed::BYTES]) -> Self {
+        Seed(seed)
+    }
+
+    /// Creates a seed from a slice.
+    pub fn from_slice(seed: &[u8]) -> Result<Self, Error> {
+        let mut seed_ = [0u8; Seed::BYTES];
+        if seed.len() != seed_.len() {
+            return Err(Error::InvalidSeed);
+        }
+        seed_.copy_from_slice(seed);
+        Ok(Seed::new(seed_))
+    }
+}
+
+#[cfg(feature = "random")]
+impl Default for Seed {
+    /// Generates a random seed.
+    fn default() -> Self {
+        let mut seed = [0u8; Seed::BYTES];
+        getrandom::getrandom(&mut seed).expect("RNG failure");
+        Seed(seed)
+    }
+}
+
+#[cfg(feature = "random")]
+impl Seed {
+    /// Generates a random seed.
+    pub fn generate() -> Self {
+        Seed::default()
+    }
+}
+
+impl Deref for Seed {
+    type Target = [u8; Seed::BYTES];
+
+    /// Returns a seed as raw bytes.
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// Noise, for non-deterministic signatures.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Noise([u8; Noise::BYTES]);
+
+impl Noise {
+    /// Number of raw bytes for a noise component.
+    pub const BYTES: usize = 16;
+
+    /// Creates a new noise component from raw bytes.
+    pub fn new(noise: [u8; Noise::BYTES]) -> Self {
+        Noise(noise)
+    }
+
+    /// Creates noise from a slice.
+    pub fn from_slice(noise: &[u8]) -> Result<Self, Error> {
+        let mut noise_ = [0u8; Noise::BYTES];
+        if noise.len() != noise_.len() {
+            return Err(Error::InvalidSeed);
+        }
+        noise_.copy_from_slice(noise);
+        Ok(Noise::new(noise_))
+    }
+}
+
+impl Deref for Noise {
+    type Target = [u8; Noise::BYTES];
+
+    /// Returns a noise as raw bytes.
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[cfg(feature = "random")]
+impl Default for Noise {
+    /// Generates random noise.
+    fn default() -> Self {
+        let mut noise = [0u8; Noise::BYTES];
+        getrandom::getrandom(&mut noise).expect("RNG failure");
+        Noise(noise)
+    }
+}
+
+#[cfg(feature = "random")]
+impl Noise {
+    /// Generates random noise.
+    pub fn generate() -> Self {
+        Noise::default()
+    }
+}
+
 impl PublicKey {
     /// Verifies that the signature `signature` is valid for the message `message`.
     pub fn verify(&self, message: impl AsRef<[u8]>, signature: &Signature) -> Result<(), Error> {
@@ -119,6 +283,60 @@ impl PublicKey {
         } else {
             Ok(())
         }
+    }
+}
+
+impl SecretKey {
+    /// Computes a signature for the message `message` using the secret key.
+    /// The noise parameter is optional, but recommended in order to mitigate fault attacks.
+    pub fn sign(&self, message: impl AsRef<[u8]>, noise: Option<Noise>) -> Signature {
+        let seed = &self[0..32];
+        let pk = &self[32..64];
+        let az: [u8; 64] = {
+            let mut hash_output = sha512::Hash::hash(seed);
+            hash_output[0] &= 248;
+            hash_output[31] &= 63;
+            hash_output[31] |= 64;
+            hash_output
+        };
+        let nonce = {
+            let mut hasher = sha512::Hash::new();
+            if let Some(noise) = noise {
+                hasher.update(&noise[..]);
+                hasher.update(&az[..]);
+            } else {
+                hasher.update(&az[32..64]);
+            }
+            hasher.update(&message);
+            let mut hash_output = hasher.finalize();
+            sc_reduce(&mut hash_output[0..64]);
+            hash_output
+        };
+        let mut signature: [u8; 64] = [0; 64];
+        let r = ge_scalarmult_base(&nonce[0..32]);
+        signature[0..32].copy_from_slice(&r.to_bytes()[..]);
+        signature[32..64].copy_from_slice(pk);
+        let mut hasher = sha512::Hash::new();
+        hasher.update(signature.as_ref());
+        hasher.update(&message);
+        let mut hram = hasher.finalize();
+        sc_reduce(&mut hram);
+        sc_muladd(
+            &mut signature[32..64],
+            &hram[0..32],
+            &az[0..32],
+            &nonce[0..32],
+        );
+        let signature = Signature(signature);
+
+        #[cfg(feature = "self-verify")]
+        {
+            PublicKey::from_slice(pk)
+                .expect("Key length changed")
+                .verify(message, &signature)
+                .expect("Newly created signature cannot be verified");
+        }
+        signature
     }
 }
 

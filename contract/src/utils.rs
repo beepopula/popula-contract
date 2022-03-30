@@ -33,6 +33,10 @@ pub(crate) fn verify(message: Vec<u8>, sign: Vec<u8>, pk: Vec<u8>) {
     }
 }
 
-pub(crate) fn checkArgs(text: Option<String>, imgs: Option<Vec<String>>, video: Option<String>, audio: Option<String>) {
+pub(crate) fn check_args(text: Option<String>, imgs: Option<Vec<String>>, video: Option<String>, audio: Option<String>) {
     assert!(text.is_some() || (imgs.is_some() && imgs.clone().unwrap().len() > 0) || video.is_some() || audio.is_some(), "at least one field");
+}
+
+pub(crate) fn check_encrypt_args(text: Option<String>, imgs: Option<String>, video: Option<String>, audio: Option<String>) {
+    assert!(text.is_some() || imgs.is_some() || video.is_some() || audio.is_some(), "at least one field");
 }
