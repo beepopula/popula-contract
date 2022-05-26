@@ -9,7 +9,7 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::{Base58CryptoHash, U128};
 use near_sdk::serde::{Serialize, Deserialize};
 use near_sdk::serde_json::{json, self};
-use near_sdk::{env, near_bindgen, AccountId, log, bs58, PanicOnDefault, Promise, BlockHeight};
+use near_sdk::{env, near_bindgen, AccountId, log, bs58, PanicOnDefault, Promise, BlockHeight, CryptoHash};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector, LazyOption};
 use utils::{check_args, verify, check_encrypt_args};
 use access::Access;
@@ -42,6 +42,14 @@ impl Popula {
             bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1),
         };
         this
+    }
+
+    pub fn add_item(&mut self, args: String) -> Base58CryptoHash {
+        let hash = env::sha256(&(env::predecessor_account_id().to_string() + &args.clone()).into_bytes());
+        let hash: CryptoHash = hash[..].try_into().unwrap();
+        self.bloom_filter.set(&WrappedHash::from(hash));
+        let hash = Base58CryptoHash::from(hash);
+        hash
     }
 }
 
