@@ -1,4 +1,4 @@
-popula-post
+popula-contract
 ==================
 
 This [Vue] app was initialized with [create-near-app]
