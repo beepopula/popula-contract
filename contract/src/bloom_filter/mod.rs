@@ -42,11 +42,11 @@ impl Bloom {
     /// bitmap_size is the size in bytes (not bits) that will be allocated in memory
     /// items_count is an estimation of the maximum number of items to store.
     /// seed is a random value used to generate the hash functions.
-    pub fn new(bitmap_size: usize, items_count: usize) -> Self {
+    pub fn new(bitmap_size: usize, items_count: usize, key: String) -> Self {
         assert!(bitmap_size > 0 && items_count > 0);
         let bitmap_bits = (bitmap_size as u32) * 8u32;
         let k_num = Self::optimal_k_num(bitmap_bits as u64, items_count);
-        let bitmap = BitVec::from_elem(bitmap_bits as u32);
+        let bitmap = BitVec::from_elem(bitmap_bits as u32, key);
         Self {
             bit_vec: bitmap,
             bitmap_bits,
@@ -57,9 +57,10 @@ impl Bloom {
     /// Create a new bloom filter structure.
     /// items_count is an estimation of the maximum number of items to store.
     /// fp_p is the wanted rate of false positives, in ]0.0, 1.0[
-    pub fn new_for_fp_rate_with_seed(items_count: usize, fp_p: f64) -> Self {
+    pub fn new_for_fp_rate_with_seed(items_count: usize, fp_p: f64, key: String) -> Self {
         let bitmap_size = Self::compute_bitmap_size(items_count, fp_p);
-        Bloom::new(bitmap_size, items_count)
+        log!("{:?} bitmap_size: {:?}", key, bitmap_size);
+        Bloom::new(bitmap_size, items_count, key)
     }
 
     /// Compute a recommended bitmap size for items_count items
@@ -74,12 +75,12 @@ impl Bloom {
     }
 
     /// Record the presence of an item.
-    pub fn set(&mut self, item: &WrappedHash)
+    pub fn set(&mut self, item: &WrappedHash, value: bool)
     {
         let mut hashes = [0u64, 0u64];
         for k_i in 0..self.k_num {
             let bit_offset = (self.bloom_hash(&mut hashes, item, k_i) % self.bitmap_bits as u64) as u32;
-            self.bit_vec.set(bit_offset, true);
+            self.bit_vec.set(bit_offset, value);
         }
     }
 
@@ -104,7 +105,7 @@ impl Bloom {
         let mut hashes = [0u64, 0u64];
         let mut found = true;
         for k_i in 0..self.k_num {
-            let bit_offset = (self.bloom_hash(&mut hashes, item, k_i) % self.bitmap_bits as u64);
+            let bit_offset = self.bloom_hash(&mut hashes, item, k_i) % self.bitmap_bits as u64;
             if self.bit_vec.get(bit_offset as u32).unwrap() == false {
                 found = false;
                 self.bit_vec.set(bit_offset as u32, true);

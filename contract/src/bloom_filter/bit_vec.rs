@@ -55,10 +55,9 @@ fn blocks_for_bits(bits: u32) -> u32 {
 }
 impl BitVec {
 
-    pub fn from_elem(nbits: u32) -> Self {
-        let nblocks = blocks_for_bits(nbits);
-        let mut bit_vec = BitVec {
-            storage: UnorderedMap::new(b'v'),
+    pub fn from_elem(nbits: u32, key: String) -> Self {
+        let bit_vec = BitVec {
+            storage: UnorderedMap::new(key.as_bytes()),
             nbits,
         };
         bit_vec
@@ -90,9 +89,10 @@ impl BitVec {
         }
         let w = i / u32::BITS;
         let b = i % u32::BITS;
-        self.storage.get(&w).map(|block|
-            (block & ((1 as u32) << b)) != 0
-        )
+        match self.storage.get(&w) {
+            Some(block) => Some((block & ((1 as u32) << b)) != 0),
+            None => Some(false)
+        }
     }
 
     /// Sets the value of a bit at an index `i`.

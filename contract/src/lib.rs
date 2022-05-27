@@ -26,7 +26,9 @@ pub mod access;
 pub struct Popula {
     owner_id: AccountId,
     public_key: String,
-    bloom_filter: Bloom,
+    public_bloom_filter: Bloom,
+    encryption_bloom_filter: Bloom,
+    relationship_bloom_filter: Bloom
     // metadata: LazyOption<NFTContractMetadata>,
     // notice_metadata: UnorderedMap<TokenId, TokenMetadata>
 }
@@ -39,15 +41,29 @@ impl Popula {
         let mut this = Self {
             owner_id: env::predecessor_account_id(),
             public_key: public_key,
-            bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1),
+            public_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "public".to_string()),
+            encryption_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "encrypt".to_string()),
+            relationship_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "relationship".to_string())
         };
         this
+    }
+
+    pub fn follow(&mut self, account_id: AccountId) {
+        let hash = env::sha256(&(env::predecessor_account_id().to_string() + &account_id.to_string()).into_bytes());
+        let hash: CryptoHash = hash[..].try_into().unwrap();
+        self.public_bloom_filter.set(&WrappedHash::from(hash), true);
+    }
+
+    pub fn unfollow(&mut self, account_id: AccountId) {
+        let hash = env::sha256(&(env::predecessor_account_id().to_string() + &account_id.to_string()).into_bytes());
+        let hash: CryptoHash = hash[..].try_into().unwrap();
+        self.public_bloom_filter.set(&WrappedHash::from(hash), false);
     }
 
     pub fn add_item(&mut self, args: String) -> Base58CryptoHash {
         let hash = env::sha256(&(env::predecessor_account_id().to_string() + &args.clone()).into_bytes());
         let hash: CryptoHash = hash[..].try_into().unwrap();
-        self.bloom_filter.set(&WrappedHash::from(hash));
+        self.public_bloom_filter.set(&WrappedHash::from(hash), true);
         let hash = Base58CryptoHash::from(hash);
         hash
     }

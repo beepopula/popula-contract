@@ -51,7 +51,7 @@ impl Popula {
         let args = args.clone() + &bs58::encode(env::random_seed()).into_string();
         let hash = env::sha256(&args.clone().into_bytes());
         let hash: CryptoHash = hash[..].try_into().unwrap();
-        self.bloom_filter.set(&WrappedHash::from(hash));
+        self.public_bloom_filter.set(&WrappedHash::from(hash), true);
         let hash = Base58CryptoHash::from(hash);
         // match args_obj.options {
         //     Some(options) => {
@@ -88,19 +88,19 @@ impl Popula {
     pub fn like(&mut self, target_hash: Base58CryptoHash) {
         let target_hash = target_hash.try_to_vec().unwrap();
         let target_hash:[u8;32] = target_hash[..].try_into().unwrap();
-        assert!(self.bloom_filter.check(&WrappedHash::from(target_hash)), "content not found");
+        assert!(self.public_bloom_filter.check(&WrappedHash::from(target_hash)), "content not found");
     }
 
     pub fn unlike(&mut self, target_hash: Base58CryptoHash) {
         let target_hash = target_hash.try_to_vec().unwrap();
         let target_hash:[u8;32] = target_hash[..].try_into().unwrap();
-        assert!(self.bloom_filter.check(&WrappedHash::from(target_hash)), "content not found");
+        assert!(self.public_bloom_filter.check(&WrappedHash::from(target_hash)), "content not found");
     }
 
     pub fn add_comment(&mut self, args: String, target_hash: Base58CryptoHash) -> Base58CryptoHash {
         let target_hash = target_hash.try_to_vec().unwrap();
         let target_hash: [u8;32] = target_hash[..].try_into().unwrap();
-        assert!(self.bloom_filter.check(&WrappedHash::from(target_hash)), "content not found");
+        assert!(self.public_bloom_filter.check(&WrappedHash::from(target_hash)), "content not found");
 
         let args_obj: Args = serde_json::from_str(&args).unwrap();
         check_args(args_obj.text, args_obj.imgs, args_obj.video, args_obj.audio);
@@ -108,7 +108,7 @@ impl Popula {
         let args = args.clone() + &env::block_height().to_string();
         let hash = env::sha256(&args.clone().into_bytes());
         let hash: CryptoHash = hash[..].try_into().unwrap();
-        self.bloom_filter.set(&WrappedHash::from(hash));
+        self.public_bloom_filter.set(&WrappedHash::from(hash), true);
         let hash = Base58CryptoHash::from(hash);
         hash
     }
