@@ -34,6 +34,16 @@ pub struct Popula {
 }
 
 #[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub struct OldPopula {
+    owner_id: AccountId,
+    public_key: String,
+    bloom_filter: Bloom,
+    // metadata: LazyOption<NFTContractMetadata>,
+    // notice_metadata: UnorderedMap<TokenId, TokenMetadata>
+}
+
+#[near_bindgen]
 impl Popula {
 
     #[init]
@@ -45,6 +55,27 @@ impl Popula {
             encryption_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "encrypt".to_string()),
             relationship_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "relationship".to_string())
         };
+        this
+    }
+
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
+        let prev: OldPopula = env::state_read().expect("ERR_NOT_INITIALIZED");
+        assert_eq!(
+            env::predecessor_account_id(),
+            prev.owner_id,
+            "Only owner"
+        );
+
+        let this = Popula {
+            owner_id: prev.owner_id,
+            public_key: prev.public_key,
+            public_bloom_filter: prev.bloom_filter,
+            encryption_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "encrypt".to_string()),
+            relationship_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "relationship".to_string()),
+            
+        };
+
         this
     }
 

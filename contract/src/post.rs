@@ -24,16 +24,15 @@ pub struct Args {
     options: Option<Vec<Options>>
 }
 
-// #[derive(Serialize, Deserialize)]
-// #[serde(crate = "near_sdk::serde")]
-// #[derive(Debug)]
-// pub struct EncryptArgs {
-//     text: Option<String>,
-//     imgs: Option<String>,
-//     video: Option<String>,
-//     audio: Option<String>,
-//     options: Option<Vec<Options>>
-// }
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+#[derive(Debug)]
+pub struct EncryptArgs {
+    text: Option<String>,
+    imgs: Option<String>,
+    video: Option<String>,
+    audio: Option<String>
+}
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -68,22 +67,27 @@ impl Popula {
         hash
     }
 
-    // pub fn add_encrypt_post(&mut self, encrypt_info: String, sign: String) -> String {
-    //     let hash = env::sha256(&encrypt_info.clone().into_bytes());
-    //     let sign: Vec<u8> = bs58::decode(sign).into_vec().unwrap();
-    //     let pk: Vec<u8> = bs58::decode(self.public_key.clone()).into_vec().unwrap();
-    //     verify(hash.clone(), sign.into(), pk.into());
+    pub fn add_encrypt_post(&mut self, encrypt_args: String, access: Access, text_sign: String, contract_id_sign: String) -> Base58CryptoHash {
+        let pk: Vec<u8> = bs58::decode(self.public_key.clone()).into_vec().unwrap();
+        
+        let hash = env::sha256(&env::current_account_id().to_string().into_bytes());
+        let sign: Vec<u8> = bs58::decode(contract_id_sign).into_vec().unwrap();
+        verify(hash.clone(), sign.into(), pk.clone());
 
-    //     let EncryptInfo { content: args, access: _ } = serde_json::from_str(&encrypt_info).unwrap();
-    //     check_encrypt_args(args.text, args.imgs, args.video, args.audio);
+        let hash = env::sha256(&encrypt_args.clone().into_bytes());
+        let sign: Vec<u8> = bs58::decode(text_sign).into_vec().unwrap();
+        verify(hash.clone(), sign.into(), pk);
 
-    //     let encrypt_info = encrypt_info.clone() + &bs58::encode(env::random_seed()).into_string();
-    //     let hash = env::sha256(&encrypt_info.clone().into_bytes());
-    //     let hash_str = bs58::encode(hash.clone()).into_string();
-    //     let hash:[u8;32] = hash[..].try_into().unwrap();
-    //     self.encrypt_post_bloom_filter.set(&WrappedHash::from(hash));
-    //     hash_str
-    // }
+        let args: EncryptArgs = serde_json::from_str(&encrypt_args).unwrap();
+        check_encrypt_args(args.text, args.imgs, args.video, args.audio);
+
+        let encrypt_info = encrypt_args.clone() + &bs58::encode(env::random_seed()).into_string();
+        let hash = env::sha256(&encrypt_info.clone().into_bytes());
+        let hash: CryptoHash = hash[..].try_into().unwrap();
+        self.encryption_bloom_filter.set(&WrappedHash::from(hash), true);
+        let hash = Base58CryptoHash::from(hash);
+        hash
+    }
 
     pub fn like(&mut self, target_hash: Base58CryptoHash) {
         let target_hash = target_hash.try_to_vec().unwrap();
@@ -113,27 +117,31 @@ impl Popula {
         hash
     }
 
-    // pub fn add_encrypt_comment(&mut self, encrypt_info: String, sign: Base58CryptoHash, target_hash: Base58CryptoHash) -> String {
-    //     let target_hash = target_hash.try_to_vec().unwrap();
-    //     let target_hash: [u8;32] = target_hash[..].try_into().unwrap();
-    //     assert!(self.post_bloom_filter.check(&WrappedHash::from(target_hash)), "content not found");
+    pub fn add_encrypt_comment(&mut self, encrypt_args: String, text_sign: String, contract_id_sign: String, target_hash: Base58CryptoHash) -> Base58CryptoHash {
+        let target_hash = CryptoHash::from(target_hash);
+        assert!(self.encryption_bloom_filter.check(&WrappedHash::from(target_hash)), "content not found");
 
-    //     let hash = env::sha256(&encrypt_info.clone().into_bytes());
-    //     let sign: Vec<u8> = sign.try_to_vec().unwrap();
-    //     let pk: Vec<u8> = bs58::decode(self.public_key.clone()).into_vec().unwrap();
-    //     verify(hash.clone(), sign.into(), pk.into());
+        let pk: Vec<u8> = bs58::decode(self.public_key.clone()).into_vec().unwrap();
+        
+        let hash = env::sha256(&env::current_account_id().to_string().into_bytes());
+        let sign: Vec<u8> = bs58::decode(contract_id_sign).into_vec().unwrap();
+        verify(hash.clone(), sign.into(), pk.clone().into());
 
-    //     let EncryptInfo { content: args, access: _ } = serde_json::from_str(&encrypt_info).unwrap();
-    //     check_encrypt_args(args.text, args.imgs, args.video, args.audio);
+        let hash = env::sha256(&encrypt_args.clone().into_bytes());
+        let sign: Vec<u8> = bs58::decode(text_sign).into_vec().unwrap();
+        verify(hash.clone(), sign.into(), pk.into());
 
-    //     let encrypt_info = encrypt_info.clone() + &env::block_height().to_string();
-    //     let hash = env::sha256(&encrypt_info.clone().into_bytes());
-    //     let hash_str = bs58::encode(hash.clone()).into_string();
-    //     let hash:[u8;32] = hash[..].try_into().unwrap();
-    //     self.encrypt_post_bloom_filter.set(&WrappedHash::from(hash));
-    //     hash_str
+        let args: EncryptArgs = serde_json::from_str(&encrypt_args).unwrap();
+        check_encrypt_args(args.text, args.imgs, args.video, args.audio);
 
-    // }
+        let encrypt_info = encrypt_args.clone() + &env::block_height().to_string();
+        let hash = env::sha256(&encrypt_info.clone().into_bytes());
+        let hash: CryptoHash = hash[..].try_into().unwrap();
+        self.encryption_bloom_filter.set(&WrappedHash::from(hash), true);
+        let hash = Base58CryptoHash::from(hash);
+        hash
+
+    }
 }
 
     
