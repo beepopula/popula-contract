@@ -92,13 +92,13 @@ impl Popula {
     pub fn like(&mut self, target_hash: Base58CryptoHash) {
         let target_hash = target_hash.try_to_vec().unwrap();
         let target_hash:[u8;32] = target_hash[..].try_into().unwrap();
-        assert!(self.public_bloom_filter.check(&WrappedHash::from(target_hash)), "content not found");
+        assert!(self.public_bloom_filter.check(&WrappedHash::from(target_hash)) || self.encryption_bloom_filter.check(&WrappedHash::from(target_hash)), "content not found");
     }
 
     pub fn unlike(&mut self, target_hash: Base58CryptoHash) {
         let target_hash = target_hash.try_to_vec().unwrap();
         let target_hash:[u8;32] = target_hash[..].try_into().unwrap();
-        assert!(self.public_bloom_filter.check(&WrappedHash::from(target_hash)), "content not found");
+        assert!(self.public_bloom_filter.check(&WrappedHash::from(target_hash)) || self.encryption_bloom_filter.check(&WrappedHash::from(target_hash)), "content not found");
     }
 
     pub fn add_comment(&mut self, args: String, target_hash: Base58CryptoHash) -> Base58CryptoHash {
