@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::*;
 
 #[near_bindgen]
@@ -8,7 +10,7 @@ impl Popula {
         self.relationship_bloom_filter.check(&WrappedHash::from(target_hash))
     }
 
-    pub fn get_points(&self, account_id: AccountId) -> Vec<U128> {
+    pub fn get_points(&self, account_id: AccountId) -> HashMap<String, U128> {
         self.points.get_points(account_id)
     }
 }

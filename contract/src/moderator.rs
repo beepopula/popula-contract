@@ -1,5 +1,5 @@
 use crate::*;
-use utils::get_hash_prefix;
+use utils::get_content_hash;
 use post::Hierarchy;
 
 #[near_bindgen]
@@ -9,7 +9,7 @@ impl Popula {
         let sender = env::signer_account_id();
         assert!(sender != self.owner_id || self.moderators.contains(&sender), "no authorization");
 
-        let hierarchy_hash = get_hash_prefix(hierarchies.clone(), &self.public_bloom_filter).unwrap_or(get_hash_prefix(hierarchies, &self.encryption_bloom_filter).expect("content not found"));
+        let hierarchy_hash = get_content_hash(hierarchies.clone(), &self.public_bloom_filter).unwrap_or_else(|| get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found"));
         let hierarchy_hash = Base58CryptoHash::try_from(hierarchy_hash).unwrap();
         self.reports.remove(&hierarchy_hash);    
 

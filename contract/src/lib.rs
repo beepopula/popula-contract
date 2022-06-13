@@ -46,14 +46,17 @@ pub struct Popula {
 pub struct OldPopula {
     owner_id: AccountId,
     public_key: String,
+    moderators: UnorderedSet<AccountId>,
     public_bloom_filter: Bloom,
     encryption_bloom_filter: Bloom,
     relationship_bloom_filter: Bloom,
+    reports: UnorderedSet<Base58CryptoHash>,
+    points: Points
     // metadata: LazyOption<NFTContractMetadata>,
     // notice_metadata: UnorderedMap<TokenId, TokenMetadata>
 }
 
-const MAX_LEVEL: usize = 2;
+const MAX_LEVEL: usize = 3;
 
 #[near_bindgen]
 impl Popula {
@@ -74,26 +77,40 @@ impl Popula {
     }
 
     #[init(ignore_state)]
-    pub fn migrate() -> Self {
-        let prev: OldPopula = env::state_read().expect("ERR_NOT_INITIALIZED");
-        assert_eq!(
-            env::signer_account_id(),
-            prev.owner_id,
-            "Only owner"
-        );
+    pub fn migrate(public_key: String) -> Self {
+        // let key = &base64::decode("U1RBVEU=").unwrap()[..];
+        // let read = env::storage_read(&key).unwrap();
+        // log!("{:?}", read);
+        // env::storage_remove(&key);
 
+        // let prev: OldPopula = env::state_read().expect("ERR_NOT_INITIALIZED");
+        env::state_write(&());
+        // assert_eq!(
+        //     env::signer_account_id(),
+        //     prev.owner_id,
+        //     "Only owner"
+        // );
+        
         let this = Popula {
-            owner_id: prev.owner_id,
-            public_key: prev.public_key,
+            owner_id: env::signer_account_id(),
+            public_key: public_key,
             moderators: UnorderedSet::new(b'm'),
-            public_bloom_filter: prev.public_bloom_filter,
-            encryption_bloom_filter: prev.encryption_bloom_filter,
-            relationship_bloom_filter: prev.relationship_bloom_filter,
+            public_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "public".to_string()),
+            encryption_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "encrypt".to_string()),
+            relationship_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "relationship".to_string()),
             reports: UnorderedSet::new(b'r'),
             points: Points::new()
         };
 
         this
+    }
+
+    #[init(ignore_state)]
+    pub fn fix() -> () {
+        let key = &base64::decode("cG9pbnRz").unwrap()[..];
+        let read = env::storage_read(&key).unwrap();
+        log!("{:?}", read);
+        env::storage_remove(&key);
     }
 
     pub fn follow(&mut self, account_id: AccountId) {
