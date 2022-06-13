@@ -41,29 +41,23 @@ pub struct Hierarchy {
     pub account_id: AccountId,
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-#[derive(Debug)]
-pub enum Options {
-    At(AccountId)
-}
 
 #[near_bindgen]
 impl Popula {
-    pub fn add_content(&mut self, args: String, hierarchies: Vec<Hierarchy>, options: Option<Vec<Options>>) -> Base58CryptoHash {
+    pub fn add_content(&mut self, args: String, hierarchies: Vec<Hierarchy>) -> Base58CryptoHash {
         let args_obj: Args = serde_json::from_str(&args).unwrap();
         check_args(args_obj.text, args_obj.imgs, args_obj.video, args_obj.audio);
 
         assert!(hierarchies.len() <= MAX_LEVEL, "error");
 
-        let hash_prefix = get_hash_prefix(hierarchies.clone(), &self.public_bloom_filter);
+        let hash_prefix = get_hash_prefix(hierarchies.clone(), &self.public_bloom_filter).expect("content not found");
         let target_hash = set_content(args, env::signer_account_id(), hash_prefix, &mut self.public_bloom_filter);
 
         self.points.set_points(hierarchies);
         target_hash
     }
 
-    pub fn add_encrypt_content(&mut self, encrypt_args: String, access: Access, hierarchies: Vec<Hierarchy>, options: Option<Vec<Options>>, nonce: String, sign: String) -> Base58CryptoHash {
+    pub fn add_encrypt_content(&mut self, encrypt_args: String, access: Access, hierarchies: Vec<Hierarchy>, nonce: String, sign: String) -> Base58CryptoHash {
         let pk: Vec<u8> = bs58::decode(self.public_key.clone()).into_vec().unwrap();
 
         let hash = env::sha256(&(encrypt_args.clone() + &nonce).into_bytes());
@@ -75,33 +69,43 @@ impl Popula {
 
         assert!(hierarchies.len() <= MAX_LEVEL, "error");
 
-        let hash_prefix = get_hash_prefix(hierarchies, &self.encryption_bloom_filter);
+        let hash_prefix = get_hash_prefix(hierarchies, &self.encryption_bloom_filter).expect("content not found");
 
         let target_hash = set_content(encrypt_args, env::signer_account_id(), hash_prefix, &mut self.encryption_bloom_filter);
 
         target_hash
     }
 
-    pub fn like(&mut self, target_hash: Base58CryptoHash) {
-        let target_hash = target_hash.try_to_vec().unwrap();
-        let target_hash:[u8;32] = target_hash[..].try_into().unwrap();
-        assert!(self.public_bloom_filter.check(&WrappedHash::from(target_hash)) || self.encryption_bloom_filter.check(&WrappedHash::from(target_hash)), "content not found");
+    pub fn like(&mut self, hierarchies: Vec<Hierarchy>) {
+        assert!(get_hash_prefix(hierarchies.clone(), &self.public_bloom_filter).is_some() ||
+        get_hash_prefix(hierarchies, &self.encryption_bloom_filter).is_some(), "content not found");
     }
 
-    pub fn unlike(&mut self, target_hash: Base58CryptoHash) {
-        let target_hash = target_hash.try_to_vec().unwrap();
-        let target_hash:[u8;32] = target_hash[..].try_into().unwrap();
-        assert!(self.public_bloom_filter.check(&WrappedHash::from(target_hash)) || self.encryption_bloom_filter.check(&WrappedHash::from(target_hash)), "content not found");
+    pub fn unlike(&mut self, hierarchies: Vec<Hierarchy>) {
+        assert!(get_hash_prefix(hierarchies.clone(), &self.public_bloom_filter).is_some() ||
+        get_hash_prefix(hierarchies, &self.encryption_bloom_filter).is_some(), "content not found");
     }
 
     #[payable]
-    pub fn report(&mut self, target_hash: Base58CryptoHash) {
+    pub fn report(&mut self, hierarchies: Vec<Hierarchy>) {
         let initial_storage_usage = env::storage_usage();
-        let hash = CryptoHash::from(target_hash);
-        assert!(self.public_bloom_filter.check(&WrappedHash::from(hash)) || self.encryption_bloom_filter.check(&WrappedHash::from(hash)), "content not found");
-
-        self.reports.insert(&target_hash);
+        let hierarchy_hash = get_hash_prefix(hierarchies.clone(), &self.public_bloom_filter).unwrap_or(get_hash_prefix(hierarchies, &self.encryption_bloom_filter).expect("content not found"));
+        self.reports.insert(&Base58CryptoHash::try_from(hierarchy_hash).unwrap());
         refund_extra_storage_deposit(env::storage_usage() - initial_storage_usage, 0)
+    }
+
+    pub fn del_content(&mut self, hierarchies: Vec<Hierarchy>) {
+        let sender_id = env::signer_account_id();
+        assert!(hierarchies.get(hierarchies.len() - 1).unwrap().account_id == sender_id, "not content owner");
+
+        let hierarchy_hash = get_hash_prefix(hierarchies.clone(), &self.public_bloom_filter).unwrap_or(get_hash_prefix(hierarchies, &self.encryption_bloom_filter).expect("content not found"));
+        let hierarchy_hash = Base58CryptoHash::try_from(hierarchy_hash).unwrap().try_to_vec().unwrap();
+        let hierarchy_hash: CryptoHash = hierarchy_hash[..].try_into().unwrap();
+        self.public_bloom_filter.set(&WrappedHash::from(hierarchy_hash), false);
+    }
+
+    pub fn share_view(&mut self, hierarchies: Vec<Hierarchy>, nonce: String, sign: String) {
+
     }
 }
 
