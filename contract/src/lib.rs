@@ -25,6 +25,7 @@ pub mod access;
 pub mod moderator;
 pub mod points;
 pub mod view;
+pub mod owner;
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -103,14 +104,6 @@ impl Popula {
         };
 
         this
-    }
-
-    #[init(ignore_state)]
-    pub fn fix() -> () {
-        let key = &base64::decode("cG9pbnRz").unwrap()[..];
-        let read = env::storage_read(&key).unwrap();
-        log!("{:?}", read);
-        env::storage_remove(&key);
     }
 
     pub fn follow(&mut self, account_id: AccountId) {

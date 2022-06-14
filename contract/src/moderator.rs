@@ -9,7 +9,10 @@ impl Popula {
         let sender = env::signer_account_id();
         assert!(sender != self.owner_id || self.moderators.contains(&sender), "no authorization");
 
-        let hierarchy_hash = get_content_hash(hierarchies.clone(), &self.public_bloom_filter).unwrap_or_else(|| get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found"));
+        let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
+            Some(v) => v,
+            None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")
+        };
         let hierarchy_hash = Base58CryptoHash::try_from(hierarchy_hash).unwrap();
         self.reports.remove(&hierarchy_hash);    
 

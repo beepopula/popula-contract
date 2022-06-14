@@ -60,7 +60,7 @@ impl Popula {
     pub fn add_encrypt_content(&mut self, encrypt_args: String, access: Access, hierarchies: Vec<Hierarchy>, nonce: String, sign: String) -> Base58CryptoHash {
         let pk: Vec<u8> = bs58::decode(self.public_key.clone()).into_vec().unwrap();
 
-        let hash = &(encrypt_args.clone() + &nonce).into_bytes();
+        let hash = env::sha256(&(encrypt_args.clone() + &nonce).into_bytes());
         let sign: Vec<u8> = bs58::decode(sign).into_vec().unwrap();
         verify(hash.clone(), sign.into(), pk);
 
@@ -77,8 +77,10 @@ impl Popula {
     }
 
     pub fn like(&mut self, hierarchies: Vec<Hierarchy>) {
-        
-        let hierarchy_hash = get_content_hash(hierarchies.clone(), &self.public_bloom_filter).unwrap_or_else(|| get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found"));
+        let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
+            Some(v) => v,
+            None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")
+        };
         let hash = env::sha256(&(env::signer_account_id().to_string() + "like" + &hierarchy_hash.to_string()).into_bytes());
         let hash: CryptoHash = hash[..].try_into().unwrap();
         let exist = self.relationship_bloom_filter.check_and_set(&WrappedHash::from(hash));
@@ -88,7 +90,10 @@ impl Popula {
     }
 
     pub fn unlike(&mut self, hierarchies: Vec<Hierarchy>) {
-        let hierarchy_hash = get_content_hash(hierarchies.clone(), &self.public_bloom_filter).unwrap_or_else(|| get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found"));
+        let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
+            Some(v) => v,
+            None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")
+        };
 
         let hash = env::sha256(&(env::signer_account_id().to_string() + "like" + &hierarchy_hash.to_string()).into_bytes());
         let hash: CryptoHash = hash[..].try_into().unwrap();
@@ -98,7 +103,10 @@ impl Popula {
     #[payable]
     pub fn report(&mut self, hierarchies: Vec<Hierarchy>) {
         let initial_storage_usage = env::storage_usage();
-        let hierarchy_hash = get_content_hash(hierarchies.clone(), &self.public_bloom_filter).unwrap_or_else(|| get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found"));
+        let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
+            Some(v) => v,
+            None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")
+        };
         self.reports.insert(&Base58CryptoHash::try_from(hierarchy_hash).unwrap());
         refund_extra_storage_deposit(env::storage_usage() - initial_storage_usage, 0)
     }
@@ -107,7 +115,10 @@ impl Popula {
         let sender_id = env::signer_account_id();
         assert!(hierarchies.get(hierarchies.len() - 1).unwrap().account_id == sender_id, "not content owner");
 
-        let hierarchy_hash = get_content_hash(hierarchies.clone(), &self.public_bloom_filter).unwrap_or_else(|| get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found"));
+        let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
+            Some(v) => v,
+            None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")
+        };
         let hierarchy_hash = Base58CryptoHash::try_from(hierarchy_hash).unwrap().try_to_vec().unwrap();
         let hierarchy_hash: CryptoHash = hierarchy_hash[..].try_into().unwrap();
         self.public_bloom_filter.set(&WrappedHash::from(hierarchy_hash), false);
