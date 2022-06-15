@@ -626,17 +626,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "near-contract-standards"
-version = "4.0.0-pre.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a47ea28f3a2a912625532fa307ab346cc0112c2c309e654ec81d1b9e7c2ca60e"
-dependencies = [
- "near-sdk",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "near-crypto"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -933,7 +922,6 @@ dependencies = [
  "aes-gcm",
  "base64 0.13.0",
  "js-sys",
- "near-contract-standards",
  "near-sdk",
  "sha2",
  "wasm-bindgen",

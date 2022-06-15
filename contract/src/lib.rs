@@ -1,17 +1,18 @@
 
 
+use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 
 use bloom_filter::{Bloom, WrappedHash};
-use near_contract_standards::non_fungible_token::TokenId;
-use near_contract_standards::non_fungible_token::metadata::{NFTContractMetadata, TokenMetadata, NFT_METADATA_SPEC};
+// use near_contract_standards::non_fungible_token::TokenId;
+// use near_contract_standards::non_fungible_token::metadata::{NFTContractMetadata, TokenMetadata, NFT_METADATA_SPEC};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::{Base58CryptoHash, U128, U64};
 use near_sdk::serde::{Serialize, Deserialize};
 use near_sdk::serde_json::{json, self};
 use near_sdk::{env, near_bindgen, AccountId, log, bs58, PanicOnDefault, Promise, BlockHeight, CryptoHash};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector, LazyOption, UnorderedSet};
-use points::Points;
+use drip::Drip;
 use utils::{check_args, verify, check_encrypt_args, set_content};
 use access::Access;
 use utils::refund_extra_storage_deposit;
@@ -23,7 +24,7 @@ pub mod bloom_filter;
 pub mod post;
 pub mod access;
 pub mod moderator;
-pub mod points;
+pub mod drip;
 pub mod view;
 pub mod owner;
 
@@ -37,7 +38,7 @@ pub struct Popula {
     encryption_bloom_filter: Bloom,
     relationship_bloom_filter: Bloom,
     reports: UnorderedSet<Base58CryptoHash>,
-    points: Points
+    drip: Drip
     // metadata: LazyOption<NFTContractMetadata>,
     // notice_metadata: UnorderedMap<TokenId, TokenMetadata>
 }
@@ -52,7 +53,7 @@ pub struct OldPopula {
     encryption_bloom_filter: Bloom,
     relationship_bloom_filter: Bloom,
     reports: UnorderedSet<Base58CryptoHash>,
-    points: Points
+    drip: Drip
     // metadata: LazyOption<NFTContractMetadata>,
     // notice_metadata: UnorderedMap<TokenId, TokenMetadata>
 }
@@ -72,7 +73,7 @@ impl Popula {
             encryption_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "encrypt".to_string()),
             relationship_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "relationship".to_string()),
             reports: UnorderedSet::new(b'r'),
-            points: Points::new()
+            drip: Drip::new()
         };
         this
     }
@@ -100,7 +101,7 @@ impl Popula {
             encryption_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "encrypt".to_string()),
             relationship_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "relationship".to_string()),
             reports: UnorderedSet::new(b'r'),
-            points: Points::new()
+            drip: Drip::new()
         };
 
         this
@@ -120,7 +121,13 @@ impl Popula {
 
     pub fn add_item(&mut self, args: String) -> Base58CryptoHash {
         let args = env::signer_account_id().to_string() + &args.clone();
-        set_content(args, env::signer_account_id(), "".to_string(), &mut self.public_bloom_filter)
+        let target_hash = set_content(args, env::signer_account_id(), "".to_string(), &mut self.public_bloom_filter);
+        self.drip.set_content_drip(Vec::new());
+        target_hash
+    }
+
+    pub fn collect_drip(&mut self) -> HashMap<String, U128> {
+        self.drip.get_and_clear_drip(env::signer_account_id())
     }
 }
 

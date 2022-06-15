@@ -9,7 +9,6 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 near-sdk = "4.0.0-pre.7"
-near-contract-standards = "4.0.0-pre.8"
 
 [dependencies.aes-gcm]
 version = "0.9"

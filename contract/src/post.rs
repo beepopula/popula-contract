@@ -53,11 +53,11 @@ impl Popula {
         let hash_prefix = get_content_hash(hierarchies.clone(), &self.public_bloom_filter).expect("content not found");
         let target_hash = set_content(args, env::signer_account_id(), hash_prefix, &mut self.public_bloom_filter);
 
-        self.points.set_content_points(hierarchies);
+        self.drip.set_content_drip(hierarchies);
         target_hash
     }
 
-    pub fn add_encrypt_content(&mut self, encrypt_args: String, access: Access, hierarchies: Vec<Hierarchy>, nonce: String, sign: String) -> Base58CryptoHash {
+    pub fn add_encrypt_content(&mut self, encrypt_args: String, access: Option<Access>, hierarchies: Vec<Hierarchy>, nonce: String, sign: String) -> Base58CryptoHash {
         let pk: Vec<u8> = bs58::decode(self.public_key.clone()).into_vec().unwrap();
 
         let hash = env::sha256(&(encrypt_args.clone() + &nonce).into_bytes());
@@ -69,10 +69,11 @@ impl Popula {
 
         assert!(hierarchies.len() < MAX_LEVEL, "error");
 
-        let hash_prefix = get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found");
+        let hash_prefix = get_content_hash(hierarchies.clone(), &self.encryption_bloom_filter).expect("content not found");
 
         let target_hash = set_content(encrypt_args, env::signer_account_id(), hash_prefix, &mut self.encryption_bloom_filter);
-
+        
+        self.drip.set_content_drip(hierarchies);
         target_hash
     }
 
@@ -85,7 +86,7 @@ impl Popula {
         let hash: CryptoHash = hash[..].try_into().unwrap();
         let exist = self.relationship_bloom_filter.check_and_set(&WrappedHash::from(hash));
         if !exist {
-            self.points.set_like_points(env::signer_account_id());
+            self.drip.set_like_drip(env::signer_account_id());
         }
     }
 

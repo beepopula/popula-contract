@@ -10,7 +10,7 @@ impl Popula {
         self.relationship_bloom_filter.check(&WrappedHash::from(target_hash))
     }
 
-    pub fn get_points(&self, account_id: AccountId) -> HashMap<String, U128> {
-        self.points.get_points(account_id)
+    pub fn get_drip(&self, account_id: AccountId) -> HashMap<String, U128> {
+        self.drip.get_drip(account_id)
     }
 }
