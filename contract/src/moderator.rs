@@ -18,6 +18,7 @@ impl Popula {
 
         let mut account = self.reports.get(&account_id).unwrap();
         let mut report = account.get(&hierarchy_hash).unwrap();
+        assert!(report.del.is_none(), "resolved");
         report.del = Some(del); 
         account.insert(&hierarchy_hash, &report);
         self.reports.insert(&account_id, &account);

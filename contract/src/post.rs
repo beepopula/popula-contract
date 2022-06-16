@@ -33,6 +33,7 @@ pub struct EncryptArgs {
     audio: Option<String>
 }
 
+#[derive(BorshDeserialize, BorshSerialize)]
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 #[derive(Debug, Clone)]
@@ -46,6 +47,7 @@ pub struct Hierarchy {
 #[serde(crate = "near_sdk::serde")]
 #[derive(Debug, Clone)]
 pub struct Report {
+    pub hierarchies: Vec<Hierarchy>,
     pub timestamp: U64,
     pub deposit: U128,
     pub del: Option<bool>
@@ -118,10 +120,11 @@ impl Popula {
         let sender_id = env::signer_account_id();
         let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
             Some(v) => v,
-            None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")
+            None => get_content_hash(hierarchies.clone(), &self.encryption_bloom_filter).expect("content not found")
         };
         let mut account = self.reports.get(&sender_id).unwrap_or(UnorderedMap::new((sender_id.to_string() + "report").as_bytes()));
         account.insert(&Base58CryptoHash::try_from(hierarchy_hash).unwrap(), &Report{ 
+            hierarchies,
             timestamp: env::block_timestamp().into(),
             deposit: env::attached_deposit().into(), 
             del: None 

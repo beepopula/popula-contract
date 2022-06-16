@@ -26,7 +26,7 @@ impl Popula {
         self.relationship_bloom_filter.check(&WrappedHash::from(view_hash))
     }
 
-    pub fn check_report(&self, account_id: AccountId) -> Vec<Report> {
+    pub fn get_reports(&self, account_id: AccountId) -> Vec<Report> {
         let account = match self.reports.get(&account_id) {
             Some(v) => v,
             None => return Vec::new()
