@@ -41,6 +41,16 @@ pub struct Hierarchy {
     pub account_id: AccountId,
 }
 
+#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+#[derive(Debug, Clone)]
+pub struct Report {
+    pub timestamp: U64,
+    pub deposit: U128,
+    pub del: Option<bool>
+}
+
 
 #[near_bindgen]
 impl Popula {
@@ -80,13 +90,13 @@ impl Popula {
     pub fn like(&mut self, hierarchies: Vec<Hierarchy>) {
         let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
             Some(v) => v,
-            None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")
+            None => get_content_hash(hierarchies.clone(), &self.encryption_bloom_filter).expect("content not found")
         };
         let hash = env::sha256(&(env::signer_account_id().to_string() + "like" + &hierarchy_hash.to_string()).into_bytes());
         let hash: CryptoHash = hash[..].try_into().unwrap();
-        let exist = self.relationship_bloom_filter.check_and_set(&WrappedHash::from(hash));
+        let exist = self.relationship_bloom_filter.check_and_set(&WrappedHash::from(hash), true);
         if !exist {
-            self.drip.set_like_drip(env::signer_account_id());
+            self.drip.set_like_drip(hierarchies);
         }
     }
 
@@ -103,13 +113,20 @@ impl Popula {
 
     #[payable]
     pub fn report(&mut self, hierarchies: Vec<Hierarchy>) {
-        let initial_storage_usage = env::storage_usage();
+        assert!(5_000_000_000_000_000_000_000_000 <= env::attached_deposit(), "not enough deposit");
+
+        let sender_id = env::signer_account_id();
         let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
             Some(v) => v,
             None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")
         };
-        self.reports.insert(&Base58CryptoHash::try_from(hierarchy_hash).unwrap());
-        refund_extra_storage_deposit(env::storage_usage() - initial_storage_usage, 0)
+        let mut account = self.reports.get(&sender_id).unwrap_or(UnorderedMap::new((sender_id.to_string() + "report").as_bytes()));
+        account.insert(&Base58CryptoHash::try_from(hierarchy_hash).unwrap(), &Report{ 
+            timestamp: env::block_timestamp().into(),
+            deposit: env::attached_deposit().into(), 
+            del: None 
+        });
+        self.reports.insert(&sender_id, &account);
     }
 
     pub fn del_content(&mut self, hierarchies: Vec<Hierarchy>) {
@@ -123,9 +140,35 @@ impl Popula {
         let hierarchy_hash = Base58CryptoHash::try_from(hierarchy_hash).unwrap().try_to_vec().unwrap();
         let hierarchy_hash: CryptoHash = hierarchy_hash[..].try_into().unwrap();
         self.public_bloom_filter.set(&WrappedHash::from(hierarchy_hash), false);
+        self.encryption_bloom_filter.set(&WrappedHash::from(hierarchy_hash), false);
     }
 
-    pub fn share_view(&mut self, hierarchies: Vec<Hierarchy>, nonce: String, sign: String) {
+    pub fn share_view(&mut self, hierarchies: Vec<Hierarchy>, inviter_id: AccountId) {
+        assert!(inviter_id != env::signer_account_id(), "failed");
+        let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
+            Some(v) => v,
+            None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")
+        };
+        let view_hash = env::sha256(&(env::signer_account_id().to_string() + "viewed" + &hierarchy_hash + "invited_by" + &inviter_id.to_string()).into_bytes());
+        let view_hash: CryptoHash = view_hash[..].try_into().unwrap();
+        let exist = self.relationship_bloom_filter.check_and_set(&WrappedHash::from(view_hash), true);
+        if !exist {
+            self.drip.set_share_drip(inviter_id)
+        }
+    }
 
+    pub fn redeem_report_deposit(&mut self, hierarchies: Vec<Hierarchy>) {
+        let sender_id = env::signer_account_id();
+        let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
+            Some(v) => v,
+            None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")
+        };
+        let mut account = self.reports.get(&sender_id).unwrap_or(UnorderedMap::new((sender_id.to_string() + "report").as_bytes()));
+        let key = Base58CryptoHash::try_from(hierarchy_hash).unwrap();
+        let report = account.get(&key).unwrap();
+        assert!(report.del == Some(true) || env::block_timestamp() - report.timestamp.0 > 2_592_000_000_000_000, "redeem failed");
+        Promise::new(sender_id.clone()).transfer(report.deposit.0);
+        account.remove(&key);
+        self.reports.insert(&sender_id, &account);
     }
 }

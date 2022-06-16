@@ -5,22 +5,30 @@ use post::Hierarchy;
 #[near_bindgen]
 impl Popula {
 
-    pub fn report_confirm(&mut self, hierarchies: Vec<Hierarchy>, del: bool) {
-        let sender = env::signer_account_id();
-        assert!(sender != self.owner_id || self.moderators.contains(&sender), "no authorization");
+    pub fn report_confirm(&mut self, account_id: AccountId, hierarchies: Vec<Hierarchy>, del: bool) {
+        let sender_id = env::signer_account_id();
+        assert!(account_id != sender_id, "signer_id = account_id");
+        assert!(sender_id != self.owner_id || self.moderators.contains(&sender_id), "no authorization");
 
         let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
             Some(v) => v,
             None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")
         };
         let hierarchy_hash = Base58CryptoHash::try_from(hierarchy_hash).unwrap();
-        self.reports.remove(&hierarchy_hash);    
 
-        if del == false {
+        let mut account = self.reports.get(&account_id).unwrap();
+        let mut report = account.get(&hierarchy_hash).unwrap();
+        report.del = Some(del); 
+        account.insert(&hierarchy_hash, &report);
+        self.reports.insert(&account_id, &account);
+
+        if del == true {
             let hierarchy_hash = CryptoHash::from(hierarchy_hash);
             self.public_bloom_filter.set(&WrappedHash::from(hierarchy_hash), false);
             self.encryption_bloom_filter.set(&WrappedHash::from(hierarchy_hash), false);
+
+            self.drip.set_report_drip(account_id);
+            self.drip.set_report_confirm_drip();
         }
     }
-
 }
