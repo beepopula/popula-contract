@@ -23,12 +23,11 @@ impl Drip {
         }
     }
 
-    pub fn set_content_drip(&mut self, hierarchies: Vec<Hierarchy>) {
+    pub fn set_content_drip(&mut self, hierarchies: Vec<Hierarchy>, account_id: AccountId) {
         let len = hierarchies.len();
-        let sender_id = env::signer_account_id();
 
         for (i, hierarchy) in hierarchies.iter().enumerate() { 
-            if hierarchy.account_id == sender_id {
+            if hierarchy.account_id == account_id {
                 continue
             }
             let mut account = self.accounts.get(&hierarchy.account_id).unwrap_or(HashMap::new());
@@ -37,25 +36,26 @@ impl Drip {
             self.accounts.insert(&hierarchy.account_id, &account);
         }
 
-        let mut sender = self.accounts.get(&sender_id).unwrap_or(HashMap::new());
+        let mut sender = self.accounts.get(&account_id).unwrap_or(HashMap::new());
         let key = "content".to_string() + &(len).to_string();
         set_drip(key, &mut sender);
-        self.accounts.insert(&sender_id, &sender);
+        self.accounts.insert(&account_id, &sender);
     }
 
-    pub fn set_like_drip(&mut self, hierarchies: Vec<Hierarchy>) {
-        let account_id = hierarchies.get(hierarchies.len() - 1).unwrap().account_id.clone();
-        if account_id == env::signer_account_id() {
+    pub fn set_like_drip(&mut self, hierarchies: Vec<Hierarchy>, account_id: AccountId) {
+        let content_account_id = hierarchies.get(hierarchies.len() - 1).unwrap().account_id.clone();
+        if content_account_id == account_id {
             return
         }
         let key = "like".to_string();
-        let mut account = self.accounts.get(&account_id).unwrap_or(HashMap::new());
-        set_drip(key, &mut account);
-        self.accounts.insert(&account_id, &account);
+        let mut content_account = self.accounts.get(&content_account_id).unwrap_or(HashMap::new());
+        set_drip(key, &mut content_account);
+        self.accounts.insert(&content_account_id, &content_account);
     }
 
-    pub fn set_report_drip(&mut self, account_id: AccountId) {
-        if account_id == env::signer_account_id() {
+    pub fn set_report_drip(&mut self, hierarchies: Vec<Hierarchy>, account_id: AccountId) {
+        let content_account_id = hierarchies.get(hierarchies.len() - 1).unwrap().account_id.clone();
+        if content_account_id == account_id {
             return
         }
         let key = "report".to_string();
@@ -64,8 +64,7 @@ impl Drip {
         self.accounts.insert(&account_id, &account);
     }
 
-    pub fn set_report_confirm_drip(&mut self) {
-        let account_id = env::signer_account_id();
+    pub fn set_report_confirm_drip(&mut self, account_id: AccountId) {
         let key = "report_confirm".to_string();
         let mut account = self.accounts.get(&account_id).unwrap_or(HashMap::new());
         set_drip(key, &mut account);
@@ -73,9 +72,6 @@ impl Drip {
     }
 
     pub fn set_share_drip(&mut self, account_id: AccountId) {
-        if account_id == env::signer_account_id() {
-            return
-        }
         let key = "share".to_string();
         let mut account = self.accounts.get(&account_id).unwrap_or(HashMap::new());
         set_drip(key, &mut account);

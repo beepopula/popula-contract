@@ -57,19 +57,21 @@ pub struct Report {
 #[near_bindgen]
 impl Popula {
     pub fn add_content(&mut self, args: String, hierarchies: Vec<Hierarchy>) -> Base58CryptoHash {
+        let sender_id = env::predecessor_account_id();
         let args_obj: Args = serde_json::from_str(&args).unwrap();
         check_args(args_obj.text, args_obj.imgs, args_obj.video, args_obj.audio);
 
         assert!(hierarchies.len() < MAX_LEVEL, "error");
 
         let hash_prefix = get_content_hash(hierarchies.clone(), &self.public_bloom_filter).expect("content not found");
-        let target_hash = set_content(args, env::signer_account_id(), hash_prefix, &mut self.public_bloom_filter);
+        let target_hash = set_content(args, sender_id.clone(), hash_prefix, &mut self.public_bloom_filter);
 
-        self.drip.set_content_drip(hierarchies);
+        self.drip.set_content_drip(hierarchies, sender_id);
         target_hash
     }
 
     pub fn add_encrypt_content(&mut self, encrypt_args: String, access: Option<Access>, hierarchies: Vec<Hierarchy>, nonce: String, sign: String) -> Base58CryptoHash {
+        let sender_id = env::predecessor_account_id();
         let pk: Vec<u8> = bs58::decode(self.public_key.clone()).into_vec().unwrap();
 
         let hash = env::sha256(&(encrypt_args.clone() + &nonce).into_bytes());
@@ -83,41 +85,43 @@ impl Popula {
 
         let hash_prefix = get_content_hash(hierarchies.clone(), &self.encryption_bloom_filter).expect("content not found");
 
-        let target_hash = set_content(encrypt_args, env::signer_account_id(), hash_prefix, &mut self.encryption_bloom_filter);
+        let target_hash = set_content(encrypt_args, sender_id.clone(), hash_prefix, &mut self.encryption_bloom_filter);
         
-        self.drip.set_content_drip(hierarchies);
+        self.drip.set_content_drip(hierarchies, sender_id);
         target_hash
     }
 
     pub fn like(&mut self, hierarchies: Vec<Hierarchy>) {
+        let sender_id = env::predecessor_account_id();
         let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
             Some(v) => v,
             None => get_content_hash(hierarchies.clone(), &self.encryption_bloom_filter).expect("content not found")
         };
-        let hash = env::sha256(&(env::signer_account_id().to_string() + "like" + &hierarchy_hash.to_string()).into_bytes());
+        let hash = env::sha256(&(sender_id.to_string() + "like" + &hierarchy_hash.to_string()).into_bytes());
         let hash: CryptoHash = hash[..].try_into().unwrap();
         let exist = self.relationship_bloom_filter.check_and_set(&WrappedHash::from(hash), true);
         if !exist {
-            self.drip.set_like_drip(hierarchies);
+            self.drip.set_like_drip(hierarchies, sender_id);
         }
     }
 
     pub fn unlike(&mut self, hierarchies: Vec<Hierarchy>) {
+        let sender_id = env::predecessor_account_id();
         let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
             Some(v) => v,
             None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")
         };
 
-        let hash = env::sha256(&(env::signer_account_id().to_string() + "like" + &hierarchy_hash.to_string()).into_bytes());
+        let hash = env::sha256(&(sender_id.to_string() + "like" + &hierarchy_hash.to_string()).into_bytes());
         let hash: CryptoHash = hash[..].try_into().unwrap();
-        assert!(self.relationship_bloom_filter.check(&WrappedHash::from(hash)), "illegal");
+        assert!(self.relationship_bloom_filter.check_and_set(&WrappedHash::from(hash), false), "illegal");
     }
 
     #[payable]
     pub fn report(&mut self, hierarchies: Vec<Hierarchy>) {
         assert!(5_000_000_000_000_000_000_000_000 <= env::attached_deposit(), "not enough deposit");
 
-        let sender_id = env::signer_account_id();
+        let sender_id = env::predecessor_account_id();
         let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
             Some(v) => v,
             None => get_content_hash(hierarchies.clone(), &self.encryption_bloom_filter).expect("content not found")
@@ -133,7 +137,7 @@ impl Popula {
     }
 
     pub fn del_content(&mut self, hierarchies: Vec<Hierarchy>) {
-        let sender_id = env::signer_account_id();
+        let sender_id = env::predecessor_account_id();
         assert!(hierarchies.get(hierarchies.len() - 1).unwrap().account_id == sender_id, "not content owner");
 
         let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
@@ -147,12 +151,13 @@ impl Popula {
     }
 
     pub fn share_view(&mut self, hierarchies: Vec<Hierarchy>, inviter_id: AccountId) {
-        assert!(inviter_id != env::signer_account_id(), "failed");
+        let sender_id = env::predecessor_account_id();
+        assert!(inviter_id != sender_id, "failed");
         let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
             Some(v) => v,
             None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")
         };
-        let view_hash = env::sha256(&(env::signer_account_id().to_string() + "viewed" + &hierarchy_hash + "invited_by" + &inviter_id.to_string()).into_bytes());
+        let view_hash = env::sha256(&(sender_id.to_string() + "viewed" + &hierarchy_hash + "invited_by" + &inviter_id.to_string()).into_bytes());
         let view_hash: CryptoHash = view_hash[..].try_into().unwrap();
         let exist = self.relationship_bloom_filter.check_and_set(&WrappedHash::from(view_hash), true);
         if !exist {
@@ -161,7 +166,7 @@ impl Popula {
     }
 
     pub fn redeem_report_deposit(&mut self, hierarchies: Vec<Hierarchy>) {
-        let sender_id = env::signer_account_id();
+        let sender_id = env::predecessor_account_id();
         let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
             Some(v) => v,
             None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")

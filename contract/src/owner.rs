@@ -7,7 +7,7 @@ impl Popula {
     }
 
     pub fn set_public_key(&mut self, public_key: String) {
-        let sender = env::signer_account_id();
+        let sender = env::predecessor_account_id();
         assert!(sender == self.owner_id, "owner only");
         self.public_key = public_key;
     }

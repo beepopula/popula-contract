@@ -21,7 +21,7 @@ pub(crate) fn refund_extra_storage_deposit(storage_used: StorageUsage, used_bala
 
     let refund = attached_deposit - required_cost;
     if refund > 1 {
-        Promise::new(env::signer_account_id()).transfer(refund);
+        Promise::new(env::predecessor_account_id()).transfer(refund);
     }
 }
 

@@ -6,13 +6,13 @@ use post::Hierarchy;
 impl Popula {
 
     pub fn report_confirm(&mut self, account_id: AccountId, hierarchies: Vec<Hierarchy>, del: bool) {
-        let sender_id = env::signer_account_id();
+        let sender_id = env::predecessor_account_id();
         assert!(account_id != sender_id, "signer_id = account_id");
         assert!(sender_id != self.owner_id || self.moderators.contains(&sender_id), "no authorization");
 
         let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
             Some(v) => v,
-            None => get_content_hash(hierarchies, &self.encryption_bloom_filter).expect("content not found")
+            None => get_content_hash(hierarchies.clone(), &self.encryption_bloom_filter).expect("content not found")
         };
         let hierarchy_hash = Base58CryptoHash::try_from(hierarchy_hash).unwrap();
 
@@ -28,8 +28,8 @@ impl Popula {
             self.public_bloom_filter.set(&WrappedHash::from(hierarchy_hash), false);
             self.encryption_bloom_filter.set(&WrappedHash::from(hierarchy_hash), false);
 
-            self.drip.set_report_drip(account_id);
-            self.drip.set_report_confirm_drip();
+            self.drip.set_report_drip(hierarchies, account_id);
+            self.drip.set_report_confirm_drip(sender_id);
         }
     }
 }

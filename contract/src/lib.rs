@@ -67,7 +67,7 @@ impl Popula {
     #[init]
     pub fn new(public_key: String) -> Self {
         let mut this = Self {
-            owner_id: env::signer_account_id(),
+            owner_id: env::predecessor_account_id(),
             public_key: public_key,
             moderators: UnorderedSet::new(b'm'),
             public_bloom_filter: Bloom::new_for_fp_rate_with_seed(1000000, 0.1, "public".to_string()),
@@ -87,7 +87,7 @@ impl Popula {
         let success = env::storage_remove(b"r");
         log!("{:?}", success);
         // assert_eq!(
-        //     env::signer_account_id(),
+        //     env::predecessor_account_id(),
         //     prev.owner_id,
         //     "Only owner"
         // );
@@ -107,26 +107,28 @@ impl Popula {
     }
 
     pub fn follow(&mut self, account_id: AccountId) {
-        let hash = env::sha256(&(env::signer_account_id().to_string() + "follwed_by" + &account_id.to_string()).into_bytes());
+        let hash = env::sha256(&(env::predecessor_account_id().to_string() + "follwed_by" + &account_id.to_string()).into_bytes());
         let hash: CryptoHash = hash[..].try_into().unwrap();
         self.relationship_bloom_filter.set(&WrappedHash::from(hash), true);
     }
 
     pub fn unfollow(&mut self, account_id: AccountId) {
-        let hash = env::sha256(&(env::signer_account_id().to_string() + "follwed_by" + &account_id.to_string()).into_bytes());
+        let hash = env::sha256(&(env::predecessor_account_id().to_string() + "follwed_by" + &account_id.to_string()).into_bytes());
         let hash: CryptoHash = hash[..].try_into().unwrap();
         self.relationship_bloom_filter.set(&WrappedHash::from(hash), false);
     }
 
     pub fn add_item(&mut self, args: String) -> Base58CryptoHash {
-        let args = env::signer_account_id().to_string() + &args.clone();
-        let target_hash = set_content(args, env::signer_account_id(), "".to_string(), &mut self.public_bloom_filter);
-        self.drip.set_content_drip(Vec::new());
+        let sender_id = env::predecessor_account_id();
+        let args = sender_id.to_string() + &args.clone();
+        let target_hash = set_content(args, sender_id.clone(), "".to_string(), &mut self.public_bloom_filter);
+        self.drip.set_content_drip(Vec::new(), sender_id);
         target_hash
     }
 
     pub fn collect_drip(&mut self) -> HashMap<String, U128> {
-        self.drip.get_and_clear_drip(env::signer_account_id())
+        let sender_id = env::signer_account_id();
+        self.drip.get_and_clear_drip(sender_id)
     }
 }
 
