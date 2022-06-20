@@ -119,7 +119,7 @@ impl Popula {
     }
 
     pub fn add_item(&mut self, args: String) -> Base58CryptoHash {
-        let sender_id = env::predecessor_account_id();
+        let sender_id = env::signer_account_id();
         let args = sender_id.to_string() + &args.clone();
         let target_hash = set_content(args, sender_id.clone(), "".to_string(), &mut self.public_bloom_filter);
         self.drip.set_content_drip(Vec::new(), sender_id);
