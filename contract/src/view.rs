@@ -16,6 +16,16 @@ impl Popula {
         self.drip.get_drip(account_id)
     }
 
+    pub fn check_shared(&self, hierarchies: Vec<Hierarchy>, account_id: AccountId) -> bool {
+        let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
+            Some(v) => v,
+            None => get_content_hash(hierarchies.clone(), &self.encryption_bloom_filter).expect("content not found")
+        };
+        let share_hash = env::sha256(&(account_id.to_string() + "shared" + &hierarchy_hash).into_bytes());
+        let share_hash: CryptoHash = share_hash[..].try_into().unwrap();
+        self.relationship_bloom_filter.check(&WrappedHash::from(share_hash))
+    }
+
     pub fn check_viewed(&self, hierarchies: Vec<Hierarchy>, inviter_id: AccountId, account_id: AccountId) -> bool {
         let hierarchy_hash = match get_content_hash(hierarchies.clone(), &self.public_bloom_filter) {
             Some(v) => v,
