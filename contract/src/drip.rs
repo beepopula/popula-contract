@@ -53,7 +53,7 @@ impl Drip {
         self.accounts.insert(&content_account_id, &content_account);
 
         let key = "like".to_string();
-        let mut account = self.accounts.get(&account_id).unwrap();
+        let mut account = self.accounts.get(&account_id).unwrap_or(HashMap::new());
         set_drip(key, &mut account);
         self.accounts.insert(&account_id, &account);
     }
