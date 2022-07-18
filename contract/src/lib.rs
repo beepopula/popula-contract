@@ -13,7 +13,7 @@ use near_sdk::serde_json::{json, self};
 use near_sdk::{env, near_bindgen, AccountId, log, bs58, PanicOnDefault, Promise, BlockHeight, CryptoHash};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector, LazyOption, UnorderedSet};
 use drip::Drip;
-use post::Report;
+use post::{Report, Hierarchy};
 use utils::{check_args, verify, check_encrypt_args, set_content};
 use access::Access;
 use events::Event;
@@ -126,8 +126,11 @@ impl Popula {
         let sender_id = env::signer_account_id();
         let args = sender_id.to_string() + &args.clone();
         let target_hash = set_content(args.clone(), sender_id.clone(), "".to_string(), &mut self.public_bloom_filter);
-        self.drip.set_content_drip(Vec::new(), sender_id);
-        Event::log_add_content(args, vec![]);
+        self.drip.set_content_drip(Vec::new(), sender_id.clone());
+        Event::log_add_content(args, vec![Hierarchy {
+            target_hash,
+            account_id: sender_id
+        }]);
         target_hash
     }
 

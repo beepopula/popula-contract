@@ -66,8 +66,11 @@ impl Popula {
         let hash_prefix = get_content_hash(hierarchies.clone(), &self.public_bloom_filter).expect("content not found");
         let target_hash = set_content(args.clone(), sender_id.clone(), hash_prefix, &mut self.public_bloom_filter);
 
-        self.drip.set_content_drip(hierarchies.clone(), sender_id);
-        Event::log_add_content(args, hierarchies);
+        self.drip.set_content_drip(hierarchies.clone(), sender_id.clone());
+        Event::log_add_content(args, [hierarchies, vec![Hierarchy { 
+            target_hash, 
+            account_id: sender_id
+        }]].concat());
         target_hash
     }
 
@@ -88,8 +91,11 @@ impl Popula {
 
         let target_hash = set_content(encrypt_args.clone(), sender_id.clone(), hash_prefix, &mut self.encryption_bloom_filter);
         
-        self.drip.set_content_drip(hierarchies.clone(), sender_id);
-        Event::log_add_content(encrypt_args, hierarchies);
+        self.drip.set_content_drip(hierarchies.clone(), sender_id.clone());
+        Event::log_add_content(encrypt_args, [hierarchies, vec![Hierarchy { 
+            target_hash, 
+            account_id: sender_id
+        }]].concat());
         target_hash
     }
 
