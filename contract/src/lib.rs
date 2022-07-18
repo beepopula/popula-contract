@@ -16,7 +16,7 @@ use drip::Drip;
 use post::Report;
 use utils::{check_args, verify, check_encrypt_args, set_content};
 use access::Access;
-use utils::refund_extra_storage_deposit;
+use events::Event;
 
 
 pub mod utils;
@@ -28,6 +28,7 @@ pub mod moderator;
 pub mod drip;
 pub mod view;
 pub mod owner;
+pub mod events;
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -82,15 +83,14 @@ impl Popula {
     #[init(ignore_state)]
     pub fn migrate() -> Self {
 
-
         let prev: OldPopula = env::state_read().expect("ERR_NOT_INITIALIZED");
-        let success = env::storage_remove(b"r");
-        log!("{:?}", success);
-        // assert_eq!(
-        //     env::predecessor_account_id(),
-        //     prev.owner_id,
-        //     "Only owner"
-        // );
+        // let success = env::storage_remove(b"r");
+        // log!("{:?}", success);
+        assert_eq!(
+            env::predecessor_account_id(),
+            prev.owner_id,
+            "Only owner"
+        );
         
         let this = Popula {
             owner_id: prev.owner_id,
@@ -107,22 +107,27 @@ impl Popula {
     }
 
     pub fn follow(&mut self, account_id: AccountId) {
-        let hash = env::sha256(&(env::predecessor_account_id().to_string() + "follwed_by" + &account_id.to_string()).into_bytes());
+        let sender_id = env::predecessor_account_id();
+        let hash = env::sha256(&(sender_id.to_string() + "follwing" + &account_id.to_string()).into_bytes());
         let hash: CryptoHash = hash[..].try_into().unwrap();
         self.relationship_bloom_filter.set(&WrappedHash::from(hash), true);
+        Event::log_follow(sender_id, account_id);
     }
 
     pub fn unfollow(&mut self, account_id: AccountId) {
-        let hash = env::sha256(&(env::predecessor_account_id().to_string() + "follwed_by" + &account_id.to_string()).into_bytes());
+        let sender_id = env::predecessor_account_id();
+        let hash = env::sha256(&(sender_id.to_string() + "follwing" + &account_id.to_string()).into_bytes());
         let hash: CryptoHash = hash[..].try_into().unwrap();
         self.relationship_bloom_filter.set(&WrappedHash::from(hash), false);
+        Event::log_unfollow(sender_id, account_id);
     }
 
     pub fn add_item(&mut self, args: String) -> Base58CryptoHash {
         let sender_id = env::signer_account_id();
         let args = sender_id.to_string() + &args.clone();
-        let target_hash = set_content(args, sender_id.clone(), "".to_string(), &mut self.public_bloom_filter);
+        let target_hash = set_content(args.clone(), sender_id.clone(), "".to_string(), &mut self.public_bloom_filter);
         self.drip.set_content_drip(Vec::new(), sender_id);
+        Event::log_add_content(args, vec![]);
         target_hash
     }
 
